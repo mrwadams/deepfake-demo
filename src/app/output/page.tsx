@@ -24,8 +24,9 @@ export default function OutputPage() {
  * Clean output page for OBS capture.
  *
  * Two modes:
- * 1. Pop-out from main page: reads stream from window.opener.__remoteStream
- * 2. Standalone (OBS Browser Source): runs its own WebRTC connection.
+ * 1. Pop-out from main page: subscribes to the active session via subscribe token
+ *    (own WebRTC connection, resilient to main window being backgrounded)
+ * 2. Standalone (OBS Browser Source): runs its own full WebRTC connection.
  *    Accepts optional ?face=<id> query param to auto-select a preset face.
  */
 function OutputContent() {
@@ -43,59 +44,85 @@ function OutputContent() {
     }
   }, []);
 
-  // Try pop-out mode first, fall back to standalone
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
 
-    // Mode 1: Pop-out — try to get stream from opener
-    let gotOpenerStream = false;
+    let cleanup: (() => void) | undefined;
+
+    // Mode 1: Pop-out — subscribe to the active session
+    let subscribeToken: string | null = null;
+    let apiKey: string | null = null;
     try {
-      const openerStream = (window.opener as Window | null)?.__remoteStream;
-      if (openerStream) {
-        attachStream(openerStream);
-        gotOpenerStream = true;
-      }
+      subscribeToken = (window.opener as Window | null)?.__subscribeToken ?? null;
+      // We need an API key for the subscribe client
     } catch {
       // Cross-origin — fall through to standalone
     }
 
-    if (gotOpenerStream) {
-      // Watch for opener closing
-      const checkOpener = setInterval(() => {
+    if (subscribeToken) {
+      setStatus("Subscribing to session...");
+
+      (async () => {
         try {
-          if (window.opener && (window.opener as Window).closed) {
-            setError("Main window was closed.");
+          // Get a client token for the subscribe connection
+          const tokenRes = await fetch("/api/token", { method: "POST" });
+          if (!tokenRes.ok) throw new Error("Failed to get token");
+          const tokenData = await tokenRes.json();
+          apiKey = tokenData.apiKey;
+
+          const client = createDecartClient({ apiKey: apiKey! });
+          const subClient = await client.realtime.subscribe({
+            token: subscribeToken!,
+            onRemoteStream: (stream) => {
+              attachStream(stream);
+            },
+          });
+
+          setStatus("Live");
+
+          // Watch for opener closing
+          const checkOpener = setInterval(() => {
+            try {
+              if (window.opener && (window.opener as Window).closed) {
+                setError("Main window was closed.");
+                subClient.disconnect();
+                clearInterval(checkOpener);
+              }
+            } catch {
+              clearInterval(checkOpener);
+            }
+          }, 2000);
+
+          cleanup = () => {
+            subClient.disconnect();
             clearInterval(checkOpener);
-          }
-        } catch {
-          clearInterval(checkOpener);
+          };
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Subscribe failed");
         }
-      }, 2000);
-      return () => clearInterval(checkOpener);
+      })();
+
+      return () => cleanup?.();
     }
 
     // Mode 2: Standalone — run own WebRTC connection
     setStatus("Starting camera...");
-    let cleanup: (() => void) | undefined;
 
     (async () => {
       try {
-        // Get webcam
         const localStream = await navigator.mediaDevices.getUserMedia({
           video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
           audio: false,
         });
 
-        // Get token
         setStatus("Authenticating...");
         const tokenRes = await fetch("/api/token", { method: "POST" });
         if (!tokenRes.ok) throw new Error("Failed to get token");
-        const { apiKey } = await tokenRes.json();
+        const tokenData = await tokenRes.json();
 
-        // Connect to Decart
         setStatus("Connecting to Decart...");
-        const client = createDecartClient({ apiKey });
+        const client = createDecartClient({ apiKey: tokenData.apiKey });
         const rtClient = await client.realtime.connect(localStream, {
           model: models.realtime(DECART_MODEL),
           onRemoteStream: (stream) => {
@@ -103,7 +130,6 @@ function OutputContent() {
           },
         });
 
-        // Apply face if specified via query param
         const faceId = searchParams.get("face");
         if (faceId) {
           const preset = PRESET_FACES.find((f) => f.id === faceId);

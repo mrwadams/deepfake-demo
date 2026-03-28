@@ -27,9 +27,30 @@ export function useDecartRealtime({
     onGenerationTickRef.current = onGenerationTick;
   }, [onGenerationTick]);
 
+  // Web Lock to prevent browser from throttling WebRTC in background tabs
+  const lockRef = useRef<{ release: () => void } | null>(null);
+
+  const acquireWakeLock = useCallback(() => {
+    if (typeof navigator !== "undefined" && "locks" in navigator) {
+      const controller = new AbortController();
+      navigator.locks.request(
+        "deepfake-webrtc-keepalive",
+        { signal: controller.signal },
+        () => new Promise<void>(() => {}) // Never resolves — holds the lock
+      ).catch(() => {}); // Catch abort
+      lockRef.current = { release: () => controller.abort() };
+    }
+  }, []);
+
+  const releaseWakeLock = useCallback(() => {
+    lockRef.current?.release();
+    lockRef.current = null;
+  }, []);
+
   const connect = useCallback(
     async (token: string, localStream: MediaStream) => {
       setConnectionState("connecting");
+      acquireWakeLock();
 
       try {
         const decart = createDecartClient({ apiKey: token });
@@ -57,11 +78,12 @@ export function useDecartRealtime({
         return rtClient;
       } catch (err) {
         console.error("[Decart] Connection failed:", err);
+        releaseWakeLock();
         setConnectionState("idle");
         throw err;
       }
     },
-    []
+    [acquireWakeLock, releaseWakeLock]
   );
 
   const set = useCallback(
@@ -82,8 +104,9 @@ export function useDecartRealtime({
       clientRef.current.disconnect();
       clientRef.current = null;
     }
+    releaseWakeLock();
     setConnectionState("idle");
-  }, []);
+  }, [releaseWakeLock]);
 
   const getSubscribeToken = useCallback((): string | null => {
     return clientRef.current?.subscribeToken ?? null;
@@ -95,7 +118,9 @@ export function useDecartRealtime({
         clientRef.current.disconnect();
         clientRef.current = null;
       }
+      releaseWakeLock();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {

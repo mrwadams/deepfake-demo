@@ -109,10 +109,10 @@ export function DeepfakeApp() {
           return;
         }
 
-        await realtime.connect(apiKey, webcam.stream!);
+        const rtClient = await realtime.connect(apiKey, webcam.stream!);
 
         // Expose subscribe token for pop-out
-        window.__subscribeToken = realtime.getSubscribeToken();
+        window.__subscribeToken = rtClient?.subscribeToken ?? null;
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to connect to Decart"
