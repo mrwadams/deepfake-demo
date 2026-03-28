@@ -108,10 +108,6 @@ export function useDecartRealtime({
     setConnectionState("idle");
   }, [releaseWakeLock]);
 
-  const getSubscribeToken = useCallback((): string | null => {
-    return clientRef.current?.subscribeToken ?? null;
-  }, []);
-
   useEffect(() => {
     return () => {
       if (clientRef.current) {
@@ -128,6 +124,5 @@ export function useDecartRealtime({
     connect,
     set,
     disconnect,
-    getSubscribeToken,
   };
 }

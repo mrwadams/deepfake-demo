@@ -14,7 +14,6 @@ interface ControlsBarProps {
   onStop: () => void;
   onScreenshot: () => void;
   onPopOut: () => void;
-  remoteVideoRef: React.RefObject<HTMLVideoElement | null>;
 }
 
 export function ControlsBar({

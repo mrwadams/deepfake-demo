@@ -13,7 +13,6 @@ import { MAX_SESSION_SECONDS, COST_PER_SECOND } from "@/lib/constants";
 
 declare global {
   interface Window {
-    __remoteStream?: MediaStream | null;
     __subscribeToken?: string | null;
   }
 }
@@ -26,7 +25,6 @@ export function DeepfakeApp() {
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const currentTransformRef = useRef<{
     prompt: string;
     image: File | Blob | null;
@@ -37,8 +35,6 @@ export function DeepfakeApp() {
   const realtime = useDecartRealtime({
     onRemoteStream: useCallback((stream: MediaStream) => {
       setRemoteStream(stream);
-      // Expose for pop-out window
-      window.__remoteStream = stream;
     }, []),
     onGenerationTick: useCallback((seconds: number) => {
       setElapsedSeconds(seconds);
@@ -135,7 +131,6 @@ export function DeepfakeApp() {
     setSelectedFaceId(null);
     setPrompt("");
     currentTransformRef.current = { prompt: "", image: null };
-    window.__remoteStream = null;
     window.__subscribeToken = null;
     connectingRef.current = false;
   }, [realtime, webcam, token]);
@@ -251,7 +246,6 @@ export function DeepfakeApp() {
         onStop={handleStop}
         onScreenshot={handleScreenshot}
         onPopOut={handlePopOut}
-        remoteVideoRef={remoteVideoRef}
       />
 
       {/* Screenshot Modal */}
