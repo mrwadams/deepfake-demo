@@ -4,15 +4,6 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { TokenResponse } from "@/types";
 import { TOKEN_REFRESH_BUFFER_SECONDS } from "@/lib/constants";
 
-export function getStoredPassword(): string {
-  if (typeof window === "undefined") return "";
-  return sessionStorage.getItem("demo_password") ?? "";
-}
-
-export function setStoredPassword(password: string) {
-  sessionStorage.setItem("demo_password", password);
-}
-
 export function useToken() {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -33,14 +24,7 @@ export function useToken() {
     clearTimer();
 
     try {
-      const res = await fetch("/api/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: getStoredPassword() }),
-      });
-      if (res.status === 401) {
-        throw new Error("Invalid password");
-      }
+      const res = await fetch("/api/token", { method: "POST" });
       if (!res.ok) {
         throw new Error("Token request failed");
       }

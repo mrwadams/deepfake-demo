@@ -6,24 +6,12 @@ const serverClient = createDecartClient({
   apiKey: process.env.DECART_API_KEY!,
 });
 
-export async function POST(request: Request) {
+export async function POST() {
   if (!process.env.DECART_API_KEY) {
     return NextResponse.json(
       { error: "DECART_API_KEY not configured" },
       { status: 500 }
     );
-  }
-
-  // Password gate
-  const demoPassword = process.env.DEMO_PASSWORD;
-  if (demoPassword) {
-    const { password } = await request.json().catch(() => ({ password: "" }));
-    if (password !== demoPassword) {
-      return NextResponse.json(
-        { error: "Invalid password" },
-        { status: 401 }
-      );
-    }
   }
 
   try {
