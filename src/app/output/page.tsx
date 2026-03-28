@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { createDecartClient, models } from "@decartai/sdk";
 import { DECART_MODEL } from "@/lib/constants";
 import { PRESET_FACES, loadPresetImage } from "@/lib/faces";
+import { getStoredPassword } from "@/hooks/use-token";
 
 export default function OutputPage() {
   return (
@@ -89,7 +90,12 @@ function OutputContent() {
 
         // Get token
         setStatus("Authenticating...");
-        const tokenRes = await fetch("/api/token", { method: "POST" });
+        const tokenRes = await fetch("/api/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: getStoredPassword() }),
+        });
+        if (tokenRes.status === 401) throw new Error("Invalid password — open the main page first to authenticate");
         if (!tokenRes.ok) throw new Error("Failed to get token");
         const { apiKey } = await tokenRes.json();
 
