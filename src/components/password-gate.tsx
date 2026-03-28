@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { getStoredPassword, setStoredPassword } from "@/hooks/use-token";
 
 interface PasswordGateProps {
@@ -8,7 +8,14 @@ interface PasswordGateProps {
 }
 
 export function PasswordGate({ children }: PasswordGateProps) {
-  const [authenticated, setAuthenticated] = useState(() => !!getStoredPassword());
+  const [mounted, setMounted] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
+
+  // Only check sessionStorage after mount to avoid SSR/hydration issues
+  useEffect(() => {
+    setAuthenticated(!!getStoredPassword());
+    setMounted(true);
+  }, []);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
@@ -48,6 +55,14 @@ export function PasswordGate({ children }: PasswordGateProps) {
     },
     [password]
   );
+
+  if (!mounted) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-950">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/20 border-t-violet-500" />
+      </div>
+    );
+  }
 
   if (authenticated) {
     return <>{children}</>;
