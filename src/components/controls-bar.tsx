@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { COST_PER_SECOND } from "@/lib/constants";
+import { COST_PER_SECOND, MAX_SESSION_SECONDS } from "@/lib/constants";
 
 interface ControlsBarProps {
   isRunning: boolean;
@@ -32,6 +32,7 @@ export function ControlsBar({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const cost = (elapsedSeconds * COST_PER_SECOND).toFixed(2);
+  const maxCost = (MAX_SESSION_SECONDS * COST_PER_SECOND).toFixed(2);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -103,7 +104,9 @@ export function ControlsBar({
         {isRunning && (
           <div className="ml-auto flex items-center gap-4 text-sm text-white/50">
             <span>{elapsedSeconds}s</span>
-            <span className="font-mono">${cost}</span>
+            <span className="font-mono">
+              ${cost} <span className="text-white/30">/ ${maxCost}</span>
+            </span>
           </div>
         )}
       </div>

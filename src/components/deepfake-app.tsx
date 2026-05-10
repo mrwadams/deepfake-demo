@@ -9,7 +9,8 @@ import { FaceGallery } from "./face-gallery";
 import { ControlsBar } from "./controls-bar";
 import { StatusIndicator } from "./status-indicator";
 import { ScreenshotModal } from "./screenshot-modal";
-import { MAX_SESSION_SECONDS, COST_PER_SECOND } from "@/lib/constants";
+import { SessionCountdown } from "./session-countdown";
+import { MAX_SESSION_SECONDS } from "@/lib/constants";
 
 declare global {
   interface Window {
@@ -190,8 +191,6 @@ export function DeepfakeApp() {
     );
   }, []);
 
-  const maxCost = (MAX_SESSION_SECONDS * COST_PER_SECOND).toFixed(2);
-
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6">
       {/* Header */}
@@ -199,11 +198,7 @@ export function DeepfakeApp() {
         <h1 className="text-2xl font-bold text-white">Deepfake Demo</h1>
         <div className="flex items-center gap-4">
           <StatusIndicator state={realtime.connectionState} />
-          {isLive && (
-            <span className="text-xs text-white/30">
-              auto-stop at ${maxCost}
-            </span>
-          )}
+          {isLive && <SessionCountdown elapsedSeconds={elapsedSeconds} />}
         </div>
       </div>
 
