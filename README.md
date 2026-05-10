@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Deepfake Demo
 
-## Getting Started
+A real-time webcam face-swap demo built on the [Decart AI](https://decart.ai) realtime SDK (`lucy_2_rt`). The browser captures the webcam, streams it to Decart over WebRTC, and renders the transformed video back. A reference face image and/or text prompt steers the transform.
 
-First, run the development server:
+## How it works
+
+1. The browser requests a short-lived Decart token from `/api/token` (the long-lived `DECART_API_KEY` stays on the server).
+2. `useDecartRealtime` opens a WebRTC session with `decart.realtime.connect`, sending the local `MediaStream` and receiving the transformed remote stream.
+3. Selecting a preset face or submitting a prompt calls `rtClient.set({ prompt, image, enhance })` to update the transform live.
+4. Sessions auto-stop at `MAX_SESSION_SECONDS` (5 min) to cap spend at ~`MAX_SESSION_SECONDS * COST_PER_SECOND`.
+5. `/output` is a clean fullscreen view for OBS capture; it subscribes to the active session via a subscribe token shared through `window.opener.__subscribeToken`.
+
+## Prerequisites
+
+- Node.js (matching `next@16` requirements)
+- A Decart API key (`DECART_API_KEY`)
+- A browser with webcam access
+
+## Setup
 
 ```bash
+npm install
+echo "DECART_API_KEY=sk_..." > .env.local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open <http://localhost:3000>.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable          | Where         | Purpose                                                      |
+| ----------------- | ------------- | ------------------------------------------------------------ |
+| `DECART_API_KEY`  | server only   | Long-lived key used by `/api/token` to mint scoped, short-lived client tokens. Never exposed to the browser. |
 
-## Learn More
+## Scripts
 
-To learn more about Next.js, take a look at the following resources:
+- `npm run dev` — Next.js dev server
+- `npm run build` — production build
+- `npm start` — run the production build
+- `npm run lint` — ESLint
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Keyboard shortcuts
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `Space` — start / stop the session
+- `S` — capture a screenshot of the transformed video
 
-## Deploy on Vercel
+## Deployment
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Hosted on Vercel. Access is gated by [Vercel Deployment Protection](https://vercel.com/docs/deployment-protection); there is no in-app password gate. Set `DECART_API_KEY` in the Vercel project's environment variables.
