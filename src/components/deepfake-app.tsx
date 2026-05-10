@@ -21,10 +21,18 @@ declare global {
 export function DeepfakeApp() {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [selectedFaceId, setSelectedFaceId] = useState<string | null>(null);
+  const [customImageUrl, setCustomImageUrl] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Revoke the previous object URL whenever it changes (or on unmount).
+  useEffect(() => {
+    return () => {
+      if (customImageUrl) URL.revokeObjectURL(customImageUrl);
+    };
+  }, [customImageUrl]);
 
   const currentTransformRef = useRef<{
     prompt: string;
@@ -108,6 +116,16 @@ export function DeepfakeApp() {
 
         const rtClient = await realtime.connect(apiKey, webcam.stream!);
 
+        // Apply any face/prompt the user staged before clicking Start.
+        const staged = currentTransformRef.current;
+        if (staged.prompt || staged.image) {
+          await realtime.set({
+            prompt: staged.prompt || undefined,
+            image: staged.image ?? undefined,
+            enhance: true,
+          });
+        }
+
         // Expose subscribe token for pop-out
         window.__subscribeToken = rtClient?.subscribeToken ?? null;
       } catch (err) {
@@ -130,6 +148,7 @@ export function DeepfakeApp() {
     setRemoteStream(null);
     setElapsedSeconds(0);
     setSelectedFaceId(null);
+    setCustomImageUrl(null);
     setPrompt("");
     currentTransformRef.current = { prompt: "", image: null };
     window.__subscribeToken = null;
@@ -139,6 +158,7 @@ export function DeepfakeApp() {
   const handleSelectFace = useCallback(
     async (image: File, facePrompt: string, id: string) => {
       setSelectedFaceId(id);
+      setCustomImageUrl(id === "custom" ? URL.createObjectURL(image) : null);
       const combinedPrompt = prompt
         ? `${facePrompt} ${prompt}`
         : facePrompt;
@@ -154,6 +174,7 @@ export function DeepfakeApp() {
 
   const handleClearFace = useCallback(async () => {
     setSelectedFaceId(null);
+    setCustomImageUrl(null);
     currentTransformRef.current = { prompt: prompt, image: null };
     await realtime.set({ prompt: prompt || undefined, image: null });
   }, [prompt, realtime]);
@@ -218,14 +239,18 @@ export function DeepfakeApp() {
 
       {/* Face Gallery */}
       <div>
-        <h2 className="mb-2 text-sm font-medium text-white/50">
-          Reference Face
-        </h2>
+        <div className="mb-2 flex items-baseline justify-between gap-3">
+          <h2 className="text-sm font-medium text-white/50">Reference Face</h2>
+          <p className="text-xs text-white/30">
+            Uploaded images are sent to Decart.
+          </p>
+        </div>
         <FaceGallery
           selectedId={selectedFaceId}
+          customImageUrl={customImageUrl}
           onSelectFace={handleSelectFace}
           onClear={handleClearFace}
-          disabled={!isLive}
+          disabled={isConnecting}
         />
       </div>
 
