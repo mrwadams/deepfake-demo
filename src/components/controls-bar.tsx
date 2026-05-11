@@ -6,6 +6,9 @@ import { COST_PER_SECOND, MAX_SESSION_SECONDS } from "@/lib/constants";
 interface ControlsBarProps {
   isRunning: boolean;
   isConnecting: boolean;
+  isRecording: boolean;
+  canRecord: boolean;
+  hasClip: boolean;
   elapsedSeconds: number;
   prompt: string;
   onPromptChange: (prompt: string) => void;
@@ -13,12 +16,17 @@ interface ControlsBarProps {
   onStart: () => void;
   onStop: () => void;
   onScreenshot: () => void;
+  onRecordToggle: () => void;
+  onShowClip: () => void;
   onPopOut: () => void;
 }
 
 export function ControlsBar({
   isRunning,
   isConnecting,
+  isRecording,
+  canRecord,
+  hasClip,
   elapsedSeconds,
   prompt,
   onPromptChange,
@@ -26,6 +34,8 @@ export function ControlsBar({
   onStart,
   onStop,
   onScreenshot,
+  onRecordToggle,
+  onShowClip,
   onPopOut,
 }: ControlsBarProps) {
   const [enhance, setEnhance] = useState(true);
@@ -92,6 +102,34 @@ export function ControlsBar({
         >
           Screenshot
         </button>
+
+        <button
+          onClick={onRecordToggle}
+          disabled={!isRunning || (!isRecording && !canRecord)}
+          className={`rounded-lg border px-4 py-2.5 text-sm transition-all disabled:opacity-30 ${
+            isRecording
+              ? "border-red-500/50 bg-red-500/20 text-red-200 hover:bg-red-500/30"
+              : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
+          }`}
+        >
+          {isRecording ? (
+            <span className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+              Stop Recording
+            </span>
+          ) : (
+            "Record"
+          )}
+        </button>
+
+        {hasClip && !isRecording && (
+          <button
+            onClick={onShowClip}
+            className="rounded-lg border border-violet-500/40 bg-violet-500/10 px-4 py-2.5 text-sm text-violet-200 hover:bg-violet-500/20 transition-all"
+          >
+            View Clip
+          </button>
+        )}
 
         <button
           onClick={onPopOut}

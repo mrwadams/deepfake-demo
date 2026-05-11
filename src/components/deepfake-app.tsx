@@ -9,8 +9,32 @@ import { FaceGallery } from "./face-gallery";
 import { ControlsBar } from "./controls-bar";
 import { StatusIndicator } from "./status-indicator";
 import { ScreenshotModal } from "./screenshot-modal";
+import { ClipModal } from "./clip-modal";
 import { SessionCountdown } from "./session-countdown";
 import { MAX_SESSION_SECONDS } from "@/lib/constants";
+
+// Prefer MP4 so the download plays in QuickTime and other native players.
+// Chrome 126+ supports MP4 in MediaRecorder; older browsers fall back to webm.
+// Video-only codecs: the Decart remote stream may not include audio, and asking
+// MediaRecorder for an audio codec with no matching track can make it error
+// silently and produce zero chunks.
+const RECORDING_MIME_CANDIDATES = [
+  "video/mp4;codecs=avc1.42E01E",
+  "video/mp4;codecs=avc1",
+  "video/mp4;codecs=h264",
+  "video/mp4",
+  "video/webm;codecs=vp9",
+  "video/webm;codecs=vp8",
+  "video/webm",
+];
+
+function pickRecordingMimeType(): string | null {
+  if (typeof MediaRecorder === "undefined") return null;
+  for (const mt of RECORDING_MIME_CANDIDATES) {
+    if (MediaRecorder.isTypeSupported(mt)) return mt;
+  }
+  return null;
+}
 
 declare global {
   interface Window {
@@ -25,6 +49,9 @@ export function DeepfakeApp() {
   const [prompt, setPrompt] = useState("");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
+  const [clip, setClip] = useState<{ url: string; ext: string } | null>(null);
+  const [clipModalOpen, setClipModalOpen] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Revoke the previous object URL whenever it changes (or on unmount).
@@ -34,10 +61,20 @@ export function DeepfakeApp() {
     };
   }, [customImageUrl]);
 
+  useEffect(() => {
+    return () => {
+      if (clip) URL.revokeObjectURL(clip.url);
+    };
+  }, [clip]);
+
   const currentTransformRef = useRef<{
     prompt: string;
     image: File | Blob | null;
   }>({ prompt: "", image: null });
+
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recorderChunksRef = useRef<Blob[]>([]);
+  const recorderMimeRef = useRef<string>("");
 
   const webcam = useWebcam();
   const token = useToken();
@@ -80,6 +117,10 @@ export function DeepfakeApp() {
       if (e.code === "KeyS" && isLive) {
         e.preventDefault();
         handleScreenshot();
+      }
+      if (e.code === "KeyR" && isLive) {
+        e.preventDefault();
+        handleRecordToggle();
       }
     };
     window.addEventListener("keydown", handler);
@@ -142,6 +183,10 @@ export function DeepfakeApp() {
   }, [webcam.stream]);
 
   const handleStop = useCallback(() => {
+    // Flush any in-progress recording so the clip is saved before the stream goes away.
+    if (recorderRef.current && recorderRef.current.state !== "inactive") {
+      recorderRef.current.stop();
+    }
     realtime.disconnect();
     webcam.stop();
     token.deactivate();
@@ -150,10 +195,72 @@ export function DeepfakeApp() {
     setSelectedFaceId(null);
     setCustomImageUrl(null);
     setPrompt("");
+    // Intentionally keep `clip` and `clipModalOpen` so the user can still
+    // view/download the last recording after disconnecting from Decart.
     currentTransformRef.current = { prompt: "", image: null };
     window.__subscribeToken = null;
     connectingRef.current = false;
   }, [realtime, webcam, token]);
+
+  const handleStartRecording = useCallback(() => {
+    if (!remoteStream) return;
+    const mimeType = pickRecordingMimeType();
+    if (!mimeType) {
+      setError("Recording is not supported in this browser.");
+      return;
+    }
+    try {
+      // Discard any previous clip — only the latest recording is kept.
+      setClip(null);
+      setClipModalOpen(false);
+      recorderChunksRef.current = [];
+      recorderMimeRef.current = mimeType;
+      const recorder = new MediaRecorder(remoteStream, { mimeType });
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recorderChunksRef.current.push(e.data);
+      };
+      recorder.onerror = (e) => {
+        console.error("MediaRecorder error", e);
+        setError("Recording failed — see console.");
+      };
+      recorder.onstop = () => {
+        const chunks = recorderChunksRef.current;
+        recorderChunksRef.current = [];
+        recorderRef.current = null;
+        setIsRecording(false);
+        if (chunks.length === 0) {
+          setError("Recording produced no data.");
+          return;
+        }
+        // Prefer the recorder's negotiated mimeType over what we requested.
+        const mt = recorder.mimeType || recorderMimeRef.current;
+        const blob = new Blob(chunks, { type: mt });
+        const ext = mt.startsWith("video/mp4") ? "mp4" : "webm";
+        setClip({ url: URL.createObjectURL(blob), ext });
+      };
+      // Timeslice ensures chunks land periodically rather than only at stop,
+      // which is more robust if the recorder is torn down unexpectedly.
+      recorder.start(1000);
+      recorderRef.current = recorder;
+      setIsRecording(true);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to start recording"
+      );
+    }
+  }, [remoteStream]);
+
+  const handleStopRecording = useCallback(() => {
+    const recorder = recorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      recorder.stop();
+    }
+  }, []);
+
+  const handleRecordToggle = useCallback(() => {
+    if (isRecording) handleStopRecording();
+    else handleStartRecording();
+  }, [isRecording, handleStartRecording, handleStopRecording]);
 
   const handleSelectFace = useCallback(
     async (image: File, facePrompt: string, id: string) => {
@@ -258,6 +365,9 @@ export function DeepfakeApp() {
       <ControlsBar
         isRunning={isLive}
         isConnecting={isConnecting}
+        isRecording={isRecording}
+        canRecord={remoteStream !== null}
+        hasClip={clip !== null}
         elapsedSeconds={elapsedSeconds}
         prompt={prompt}
         onPromptChange={setPrompt}
@@ -265,6 +375,8 @@ export function DeepfakeApp() {
         onStart={handleStart}
         onStop={handleStop}
         onScreenshot={handleScreenshot}
+        onRecordToggle={handleRecordToggle}
+        onShowClip={() => setClipModalOpen(true)}
         onPopOut={handlePopOut}
       />
 
@@ -273,6 +385,16 @@ export function DeepfakeApp() {
         <ScreenshotModal
           imageUrl={screenshotUrl}
           onClose={() => setScreenshotUrl(null)}
+        />
+      )}
+
+      {/* Clip Modal — only shown when user explicitly opens it, so the
+          running session UI (cost, Stop) stays visible after recording. */}
+      {clip && clipModalOpen && (
+        <ClipModal
+          videoUrl={clip.url}
+          extension={clip.ext}
+          onClose={() => setClipModalOpen(false)}
         />
       )}
     </div>
