@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useReducer } from "react";
 import { useWebcam } from "@/hooks/use-webcam";
 import { useToken } from "@/hooks/use-token";
 import { useDecartRealtime } from "@/hooks/use-decart-realtime";
@@ -12,6 +12,11 @@ import { ScreenshotModal } from "./screenshot-modal";
 import { ClipModal } from "./clip-modal";
 import { SessionCountdown } from "./session-countdown";
 import { MAX_SESSION_SECONDS, SUBSCRIBE_TOKEN_CHANNEL } from "@/lib/constants";
+import {
+  sessionPhaseReducer,
+  isConnectingPhase,
+  isLivePhase,
+} from "@/lib/session-phase";
 
 // Prefer MP4 so the download plays in QuickTime and other native players.
 // Chrome 126+ supports MP4 in MediaRecorder; older browsers fall back to webm.
@@ -108,29 +113,41 @@ export function DeepfakeApp() {
     }, []),
   });
 
-  const isLive =
-    realtime.connectionState === "connected" ||
-    realtime.connectionState === "generating";
-  const isConnecting = realtime.connectionState === "connecting";
+  const [phase, dispatch] = useReducer(sessionPhaseReducer, "idle");
+  const isLive = isLivePhase(phase);
+  const isConnecting = isConnectingPhase(phase);
 
-  // Guard against overlapping start attempts (e.g. rapid double-click or
-  // simultaneous space-bar presses).
+  // Sync SDK connection state into the reducer once handleStart has handed off.
+  useEffect(() => {
+    dispatch({ type: "SDK_STATE", state: realtime.connectionState });
+  }, [realtime.connectionState]);
+
+  // Synchronous re-entry guard for handleStart. The reducer's phase only
+  // updates on re-render, so two same-tick calls (button + space-bar) would
+  // both see phase === "idle" and both run.
   const startInFlightRef = useRef(false);
 
   const handleStart = useCallback(async () => {
-    if (startInFlightRef.current || isLive || isConnecting) return;
+    if (startInFlightRef.current) return;
     startInFlightRef.current = true;
     setError(null);
+    dispatch({ type: "START" });
     try {
       const stream = await webcam.start();
-      if (!stream) return; // webcam.error surfaces the reason
+      if (!stream) {
+        dispatch({ type: "FAIL" });
+        return; // webcam.error surfaces the reason
+      }
+      dispatch({ type: "WEBCAM_READY" });
 
       const apiKey = await token.activate();
       if (!apiKey) {
         setError("Failed to authenticate");
         webcam.stop();
+        dispatch({ type: "FAIL" });
         return;
       }
+      dispatch({ type: "TOKEN_READY" });
 
       const rtClient = await realtime.connect(apiKey, stream);
 
@@ -156,10 +173,11 @@ export function DeepfakeApp() {
         err instanceof Error ? err.message : "Failed to connect to Decart"
       );
       webcam.stop();
+      dispatch({ type: "FAIL" });
     } finally {
       startInFlightRef.current = false;
     }
-  }, [isLive, isConnecting, webcam, token, realtime]);
+  }, [webcam, token, realtime]);
 
   const handleStop = useCallback(() => {
     // Flush any in-progress recording so the clip is saved before the stream goes away.
@@ -181,6 +199,7 @@ export function DeepfakeApp() {
     subscribeTokenRef.current = null;
     channelRef.current?.postMessage({ type: "token", token: null });
     startInFlightRef.current = false;
+    dispatch({ type: "STOP" });
   }, [realtime, webcam, token]);
 
   const handleStartRecording = useCallback(() => {
@@ -361,7 +380,7 @@ export function DeepfakeApp() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">Deepfake Demo</h1>
         <div className="flex items-center gap-4">
-          <StatusIndicator state={realtime.connectionState} />
+          <StatusIndicator phase={phase} />
           {isLive && <SessionCountdown elapsedSeconds={elapsedSeconds} />}
         </div>
       </div>

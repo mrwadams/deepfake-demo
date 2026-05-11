@@ -1,16 +1,26 @@
 "use client";
 
-import type { ConnectionState } from "@decartai/sdk";
+import type { SessionPhase } from "@/lib/session-phase";
 
 interface StatusIndicatorProps {
-  state: ConnectionState | "idle";
+  phase: SessionPhase;
 }
 
 const STATE_CONFIG: Record<
-  string,
+  SessionPhase,
   { label: string; color: string; pulse: boolean }
 > = {
   idle: { label: "Ready", color: "bg-gray-500", pulse: false },
+  "starting-webcam": {
+    label: "Starting webcam",
+    color: "bg-yellow-500",
+    pulse: true,
+  },
+  "fetching-token": {
+    label: "Authenticating",
+    color: "bg-yellow-500",
+    pulse: true,
+  },
   connecting: { label: "Connecting", color: "bg-yellow-500", pulse: true },
   connected: { label: "Connected", color: "bg-blue-500", pulse: false },
   generating: { label: "LIVE", color: "bg-green-500", pulse: true },
@@ -18,8 +28,8 @@ const STATE_CONFIG: Record<
   disconnected: { label: "Disconnected", color: "bg-red-500", pulse: false },
 };
 
-export function StatusIndicator({ state }: StatusIndicatorProps) {
-  const config = STATE_CONFIG[state] ?? STATE_CONFIG.idle;
+export function StatusIndicator({ phase }: StatusIndicatorProps) {
+  const config = STATE_CONFIG[phase];
 
   return (
     <div className="flex items-center gap-2">

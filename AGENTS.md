@@ -27,6 +27,7 @@ src/
   lib/
     constants.ts         DECART_MODEL, TOKEN_TTL, MAX_SESSION_SECONDS, COST_PER_SECOND
     faces.ts             Preset reference faces (loaded from /public/faces)
+    session-phase.ts     SessionPhase enum + reducer driving status UI
   types/index.ts
 public/faces/            Preset face images
 ```
@@ -34,7 +35,7 @@ public/faces/            Preset face images
 ## Architecture notes worth knowing before editing
 
 - **Token flow.** The server-side `DECART_API_KEY` never reaches the browser. `/api/token` uses it to call `serverClient.tokens.create({ expiresIn, allowedModels })` and returns a scoped token. `useToken` schedules an auto-refresh `TOKEN_REFRESH_BUFFER_SECONDS` before expiry while a session is active.
-- **Connect sequence.** `handleStart` runs the full lifecycle in one async function: `webcam.start()` returns the `MediaStream`, then `token.activate()`, then `realtime.connect(apiKey, stream)`. A `startInFlightRef` guards against overlapping calls (button + space-bar). Earlier the connect step lived in a `useEffect` watching `webcam.stream`; that's no longer needed now that `start()` returns the stream.
+- **Connect sequence.** `handleStart` runs the full lifecycle in one async function: `webcam.start()` returns the `MediaStream`, then `token.activate()`, then `realtime.connect(apiKey, stream)`. Each step dispatches into the `sessionPhaseReducer` (`START → WEBCAM_READY → TOKEN_READY`), and the SDK's own `connectionState` is folded in via a `SDK_STATE` action once we've handed off. `StatusIndicator` reads the phase directly, so the UI distinguishes "Starting webcam" / "Authenticating" / "Connecting" rather than one generic "Connecting". A `startInFlightRef` guards same-tick re-entry (button + space-bar) since reducer state only updates on re-render.
 - **Live updates.** Changing the face or prompt calls `rtClient.set({ prompt, image, enhance })`. `currentTransformRef` keeps the last-applied prompt+image so partial updates (face only / prompt only) preserve the other field.
 - **Session cap.** `MAX_SESSION_SECONDS` auto-disconnects to bound spend. `COST_PER_SECOND` is displayed in the header; update both together if pricing changes.
 - **WebRTC backgrounding.** `use-decart-realtime` acquires a Web Lock (`navigator.locks.request`) for the duration of a session. This is a workaround for browser throttling of WebRTC when the tab is backgrounded — don't remove it without testing background behaviour (see commit `698d80c`).
