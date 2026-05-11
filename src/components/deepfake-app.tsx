@@ -75,6 +75,7 @@ export function DeepfakeApp() {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recorderChunksRef = useRef<Blob[]>([]);
   const recorderMimeRef = useRef<string>("");
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const webcam = useWebcam();
   const token = useToken();
@@ -297,9 +298,7 @@ export function DeepfakeApp() {
   }, [prompt, realtime]);
 
   const handleScreenshot = useCallback(() => {
-    // Find the remote video element in the DOM
-    const videos = document.querySelectorAll("video");
-    const remoteVideo = videos[1]; // second video is the remote one
+    const remoteVideo = remoteVideoRef.current;
     if (!remoteVideo || !remoteVideo.videoWidth) return;
 
     const canvas = document.createElement("canvas");
@@ -342,6 +341,7 @@ export function DeepfakeApp() {
         localStream={webcam.stream}
         remoteStream={remoteStream}
         isLive={isLive}
+        remoteVideoRef={remoteVideoRef}
       />
 
       {/* Face Gallery */}

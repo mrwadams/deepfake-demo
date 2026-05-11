@@ -6,6 +6,7 @@ interface VideoDisplayProps {
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
   isLive: boolean;
+  remoteVideoRef?: React.RefObject<HTMLVideoElement | null>;
 }
 
 function VideoPanel({
@@ -14,20 +15,23 @@ function VideoPanel({
   mirror,
   glow,
   overlay,
+  videoRef,
 }: {
   stream: MediaStream | null;
   label: string;
   mirror?: boolean;
   glow?: boolean;
   overlay?: ReactNode;
+  videoRef?: React.RefObject<HTMLVideoElement | null>;
 }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const internalRef = useRef<HTMLVideoElement>(null);
+  const ref = videoRef ?? internalRef;
 
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
+    if (ref.current) {
+      ref.current.srcObject = stream;
     }
-  }, [stream]);
+  }, [stream, ref]);
 
   return (
     <div className="flex flex-1 flex-col items-center gap-2">
@@ -38,7 +42,7 @@ function VideoPanel({
       >
         {stream ? (
           <video
-            ref={videoRef}
+            ref={ref}
             autoPlay
             playsInline
             muted
@@ -104,6 +108,7 @@ export function VideoDisplay({
   localStream,
   remoteStream,
   isLive,
+  remoteVideoRef,
 }: VideoDisplayProps) {
   const [mirrorLocal, setMirrorLocal] = useState(true);
 
@@ -120,7 +125,12 @@ export function VideoDisplay({
           />
         }
       />
-      <VideoPanel stream={remoteStream} label="Deepfake" glow={isLive} />
+      <VideoPanel
+        stream={remoteStream}
+        label="Deepfake"
+        glow={isLive}
+        videoRef={remoteVideoRef}
+      />
     </div>
   );
 }

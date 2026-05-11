@@ -39,7 +39,6 @@ public/faces/            Preset face images
 - **Session cap.** `MAX_SESSION_SECONDS` auto-disconnects to bound spend. `COST_PER_SECOND` is displayed in the header; update both together if pricing changes.
 - **WebRTC backgrounding.** `use-decart-realtime` acquires a Web Lock (`navigator.locks.request`) for the duration of a session. This is a workaround for browser throttling of WebRTC when the tab is backgrounded — don't remove it without testing background behaviour (see commit `698d80c`).
 - **Pop-out / OBS.** The main page exposes the Decart subscribe token via `window.__subscribeToken`. `/output` reads it from `window.opener` and calls `client.realtime.subscribe({ token, onRemoteStream })`. Cross-origin opener access will fail silently — only same-origin pop-outs work.
-- **Screenshot.** `handleScreenshot` grabs the second `<video>` element in the DOM (the remote one). If the DOM order of videos changes, update the index.
 
 ## Conventions
 
