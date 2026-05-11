@@ -11,7 +11,7 @@ import { StatusIndicator } from "./status-indicator";
 import { ScreenshotModal } from "./screenshot-modal";
 import { ClipModal } from "./clip-modal";
 import { SessionCountdown } from "./session-countdown";
-import { MAX_SESSION_SECONDS } from "@/lib/constants";
+import { MAX_SESSION_SECONDS, SUBSCRIBE_TOKEN_CHANNEL } from "@/lib/constants";
 
 // Prefer MP4 so the download plays in QuickTime and other native players.
 // Chrome 126+ supports MP4 in MediaRecorder; older browsers fall back to webm.
@@ -76,6 +76,26 @@ export function DeepfakeApp() {
   const recorderChunksRef = useRef<Blob[]>([]);
   const recorderMimeRef = useRef<string>("");
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const subscribeTokenRef = useRef<string | null>(null);
+  const channelRef = useRef<BroadcastChannel | null>(null);
+
+  // BroadcastChannel handoff for /output pop-outs. Responds to "request"
+  // messages with the current subscribe token, so an output page that opens
+  // independently of window.opener can still join the active session.
+  useEffect(() => {
+    if (typeof BroadcastChannel === "undefined") return;
+    const channel = new BroadcastChannel(SUBSCRIBE_TOKEN_CHANNEL);
+    channelRef.current = channel;
+    channel.onmessage = (e) => {
+      if (e.data?.type === "request") {
+        channel.postMessage({ type: "token", token: subscribeTokenRef.current });
+      }
+    };
+    return () => {
+      channel.close();
+      channelRef.current = null;
+    };
+  }, []);
 
   const webcam = useWebcam();
   const token = useToken();
@@ -136,9 +156,6 @@ export function DeepfakeApp() {
     } catch {
       return;
     }
-
-    // Need to wait for stream — use a small delay since setState is async
-    // Actually, we call start which sets the stream, then we use a ref approach
   };
 
   // Watch for webcam stream to become available, then connect
@@ -168,8 +185,13 @@ export function DeepfakeApp() {
           });
         }
 
-        // Expose subscribe token for pop-out
-        window.__subscribeToken = rtClient?.subscribeToken ?? null;
+        // Expose subscribe token for pop-out. window.opener is the fast path
+        // for pop-outs opened synchronously from this page; BroadcastChannel
+        // covers output pages opened independently or after a race.
+        const subscribeToken = rtClient?.subscribeToken ?? null;
+        window.__subscribeToken = subscribeToken;
+        subscribeTokenRef.current = subscribeToken;
+        channelRef.current?.postMessage({ type: "token", token: subscribeToken });
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to connect to Decart"
@@ -200,6 +222,8 @@ export function DeepfakeApp() {
     // view/download the last recording after disconnecting from Decart.
     currentTransformRef.current = { prompt: "", image: null };
     window.__subscribeToken = null;
+    subscribeTokenRef.current = null;
+    channelRef.current?.postMessage({ type: "token", token: null });
     connectingRef.current = false;
   }, [realtime, webcam, token]);
 
@@ -330,9 +354,9 @@ export function DeepfakeApp() {
       </div>
 
       {/* Error */}
-      {(error || webcam.error || token.error) && (
+      {(error || webcam.error || token.error || realtime.lastError) && (
         <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          {error || webcam.error || token.error}
+          {error || webcam.error || token.error || realtime.lastError}
         </div>
       )}
 

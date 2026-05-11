@@ -15,6 +15,7 @@ export function useDecartRealtime({
   onGenerationTick,
 }: UseDecartRealtimeOptions) {
   const [connectionState, setConnectionState] = useState<ConnectionState | "idle">("idle");
+  const [lastError, setLastError] = useState<string | null>(null);
   const clientRef = useRef<RealTimeClient | null>(null);
   const onRemoteStreamRef = useRef(onRemoteStream);
   const onGenerationTickRef = useRef(onGenerationTick);
@@ -50,6 +51,7 @@ export function useDecartRealtime({
   const connect = useCallback(
     async (token: string, localStream: MediaStream) => {
       setConnectionState("connecting");
+      setLastError(null);
       acquireWakeLock();
 
       try {
@@ -71,6 +73,7 @@ export function useDecartRealtime({
 
         rtClient.on("error", (err) => {
           console.error("[Decart]", err.message);
+          setLastError(err.message);
         });
 
         clientRef.current = rtClient;
@@ -106,6 +109,7 @@ export function useDecartRealtime({
     }
     releaseWakeLock();
     setConnectionState("idle");
+    setLastError(null);
   }, [releaseWakeLock]);
 
   useEffect(() => {
@@ -121,6 +125,7 @@ export function useDecartRealtime({
 
   return {
     connectionState,
+    lastError,
     connect,
     set,
     disconnect,

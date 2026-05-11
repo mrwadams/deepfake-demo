@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createDecartClient } from "@decartai/sdk";
+import { SUBSCRIBE_TOKEN_CHANNEL } from "@/lib/constants";
+
+const HANDOFF_TIMEOUT_MS = 2000;
 
 /**
  * Clean output page for OBS capture.
@@ -26,22 +29,50 @@ export default function OutputPage() {
     startedRef.current = true;
 
     let cleanup: (() => void) | undefined;
+    let cancelled = false;
 
-    let subscribeToken: string | null = null;
-    try {
-      subscribeToken = (window.opener as Window | null)?.__subscribeToken ?? null;
-    } catch {
-      // Cross-origin — can't access opener
-    }
+    const acquireToken = (): Promise<string | null> => {
+      // Fast path: opener exposed the token synchronously.
+      try {
+        const fromOpener = (window.opener as Window | null)?.__subscribeToken;
+        if (fromOpener) return Promise.resolve(fromOpener);
+      } catch {
+        // Cross-origin — fall through to BroadcastChannel.
+      }
 
-    if (!subscribeToken) {
-      setError("No active session. Open this page from the main app using the Pop Out button.");
-      return;
-    }
+      if (typeof BroadcastChannel === "undefined") return Promise.resolve(null);
 
-    setStatus("Subscribing to session...");
+      return new Promise((resolve) => {
+        const channel = new BroadcastChannel(SUBSCRIBE_TOKEN_CHANNEL);
+        const timer = setTimeout(() => {
+          channel.close();
+          resolve(null);
+        }, HANDOFF_TIMEOUT_MS);
+        channel.onmessage = (e) => {
+          if (e.data?.type === "token") {
+            clearTimeout(timer);
+            channel.close();
+            resolve(e.data.token ?? null);
+          }
+        };
+        channel.postMessage({ type: "request" });
+      });
+    };
 
     (async () => {
+      setStatus("Looking for active session...");
+      const subscribeToken = await acquireToken();
+      if (cancelled) return;
+
+      if (!subscribeToken) {
+        setError(
+          "No active session in the main window. Start a session, then click Pop Out."
+        );
+        return;
+      }
+
+      setStatus("Subscribing to session...");
+
       try {
         const tokenRes = await fetch("/api/token", { method: "POST" });
         if (!tokenRes.ok) throw new Error("Failed to get token");
@@ -49,7 +80,7 @@ export default function OutputPage() {
 
         const client = createDecartClient({ apiKey });
         const subClient = await client.realtime.subscribe({
-          token: subscribeToken!,
+          token: subscribeToken,
           onRemoteStream: (stream) => {
             attachStream(stream);
           },
@@ -78,7 +109,10 @@ export default function OutputPage() {
       }
     })();
 
-    return () => cleanup?.();
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
   }, [attachStream]);
 
   return (
