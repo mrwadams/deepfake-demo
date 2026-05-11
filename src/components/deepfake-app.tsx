@@ -113,14 +113,6 @@ export function DeepfakeApp() {
     realtime.connectionState === "generating";
   const isConnecting = realtime.connectionState === "connecting";
 
-  // Auto-disconnect after max session time
-  useEffect(() => {
-    if (isLive && elapsedSeconds >= MAX_SESSION_SECONDS) {
-      handleStop();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [elapsedSeconds, isLive]);
-
   // Guard against overlapping start attempts (e.g. rapid double-click or
   // simultaneous space-bar presses).
   const startInFlightRef = useRef(false);
@@ -306,10 +298,11 @@ export function DeepfakeApp() {
     );
   }, []);
 
-  // Keyboard shortcuts. The listener is installed once with no deps; a "latest"
-  // ref carries the current state and handlers in so the closure stays fresh
-  // without re-attaching on every render.
-  const keyboardLatestRef = useRef({
+  // Latest-values ref for effects that need to read current state/handlers
+  // without re-running on every change (keyboard listener installed once;
+  // auto-disconnect calls handleStop without re-binding when its identity
+  // shifts each render).
+  const latestRef = useRef({
     isLive,
     isConnecting,
     handleStart,
@@ -317,7 +310,7 @@ export function DeepfakeApp() {
     handleScreenshot,
     handleRecordToggle,
   });
-  keyboardLatestRef.current = {
+  latestRef.current = {
     isLive,
     isConnecting,
     handleStart,
@@ -325,6 +318,13 @@ export function DeepfakeApp() {
     handleScreenshot,
     handleRecordToggle,
   };
+
+  // Auto-disconnect after max session time.
+  useEffect(() => {
+    if (isLive && elapsedSeconds >= MAX_SESSION_SECONDS) {
+      latestRef.current.handleStop();
+    }
+  }, [elapsedSeconds, isLive]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -335,7 +335,7 @@ export function DeepfakeApp() {
         return;
 
       const { isLive, isConnecting, handleStart, handleStop, handleScreenshot, handleRecordToggle } =
-        keyboardLatestRef.current;
+        latestRef.current;
 
       if (e.code === "Space") {
         e.preventDefault();
