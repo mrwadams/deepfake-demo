@@ -8,7 +8,7 @@ export function useWebcam() {
   const [isActive, setIsActive] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (): Promise<MediaStream | null> => {
     try {
       setError(null);
       const mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -22,6 +22,7 @@ export function useWebcam() {
       streamRef.current = mediaStream;
       setStream(mediaStream);
       setIsActive(true);
+      return mediaStream;
     } catch (err) {
       if (err instanceof DOMException && err.name === "NotAllowedError") {
         setError("Camera access denied. Please allow camera access and try again.");
@@ -29,6 +30,7 @@ export function useWebcam() {
         setError("Failed to access camera. Please check your device.");
       }
       setIsActive(false);
+      return null;
     }
   }, []);
 

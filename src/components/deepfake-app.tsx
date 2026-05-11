@@ -121,89 +121,53 @@ export function DeepfakeApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [elapsedSeconds, isLive]);
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      )
-        return;
+  // Guard against overlapping start attempts (e.g. rapid double-click or
+  // simultaneous space-bar presses).
+  const startInFlightRef = useRef(false);
 
-      if (e.code === "Space") {
-        e.preventDefault();
-        if (isLive) handleStop();
-        else if (!isConnecting) handleStart();
-      }
-      if (e.code === "KeyS" && isLive) {
-        e.preventDefault();
-        handleScreenshot();
-      }
-      if (e.code === "KeyR" && isLive) {
-        e.preventDefault();
-        handleRecordToggle();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLive, isConnecting]);
-
-  const handleStart = async () => {
+  const handleStart = useCallback(async () => {
+    if (startInFlightRef.current || isLive || isConnecting) return;
+    startInFlightRef.current = true;
     setError(null);
     try {
-      await webcam.start();
-    } catch {
-      return;
-    }
-  };
+      const stream = await webcam.start();
+      if (!stream) return; // webcam.error surfaces the reason
 
-  // Watch for webcam stream to become available, then connect
-  const connectingRef = useRef(false);
-  useEffect(() => {
-    if (!webcam.stream || connectingRef.current || isLive) return;
-
-    const doConnect = async () => {
-      connectingRef.current = true;
-      try {
-        const apiKey = await token.activate();
-        if (!apiKey) {
-          setError("Failed to authenticate");
-          connectingRef.current = false;
-          return;
-        }
-
-        const rtClient = await realtime.connect(apiKey, webcam.stream!);
-
-        // Apply any face/prompt the user staged before clicking Start.
-        const staged = currentTransformRef.current;
-        if (staged.prompt || staged.image) {
-          await realtime.set({
-            prompt: staged.prompt || undefined,
-            image: staged.image ?? undefined,
-            enhance: true,
-          });
-        }
-
-        // Expose subscribe token for pop-out. window.opener is the fast path
-        // for pop-outs opened synchronously from this page; BroadcastChannel
-        // covers output pages opened independently or after a race.
-        const subscribeToken = rtClient?.subscribeToken ?? null;
-        window.__subscribeToken = subscribeToken;
-        subscribeTokenRef.current = subscribeToken;
-        channelRef.current?.postMessage({ type: "token", token: subscribeToken });
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to connect to Decart"
-        );
+      const apiKey = await token.activate();
+      if (!apiKey) {
+        setError("Failed to authenticate");
         webcam.stop();
+        return;
       }
-      connectingRef.current = false;
-    };
 
-    doConnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [webcam.stream]);
+      const rtClient = await realtime.connect(apiKey, stream);
+
+      // Apply any face/prompt the user staged before clicking Start.
+      const staged = currentTransformRef.current;
+      if (staged.prompt || staged.image) {
+        await realtime.set({
+          prompt: staged.prompt || undefined,
+          image: staged.image ?? undefined,
+          enhance: true,
+        });
+      }
+
+      // Expose subscribe token for pop-out. window.opener is the fast path
+      // for pop-outs opened synchronously from this page; BroadcastChannel
+      // covers output pages opened independently or after a race.
+      const subscribeToken = rtClient?.subscribeToken ?? null;
+      window.__subscribeToken = subscribeToken;
+      subscribeTokenRef.current = subscribeToken;
+      channelRef.current?.postMessage({ type: "token", token: subscribeToken });
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to connect to Decart"
+      );
+      webcam.stop();
+    } finally {
+      startInFlightRef.current = false;
+    }
+  }, [isLive, isConnecting, webcam, token, realtime]);
 
   const handleStop = useCallback(() => {
     // Flush any in-progress recording so the clip is saved before the stream goes away.
@@ -224,7 +188,7 @@ export function DeepfakeApp() {
     window.__subscribeToken = null;
     subscribeTokenRef.current = null;
     channelRef.current?.postMessage({ type: "token", token: null });
-    connectingRef.current = false;
+    startInFlightRef.current = false;
   }, [realtime, webcam, token]);
 
   const handleStartRecording = useCallback(() => {
@@ -340,6 +304,55 @@ export function DeepfakeApp() {
       "deepfake-output",
       "width=1300,height=740,menubar=no,toolbar=no,status=no"
     );
+  }, []);
+
+  // Keyboard shortcuts. The listener is installed once with no deps; a "latest"
+  // ref carries the current state and handlers in so the closure stays fresh
+  // without re-attaching on every render.
+  const keyboardLatestRef = useRef({
+    isLive,
+    isConnecting,
+    handleStart,
+    handleStop,
+    handleScreenshot,
+    handleRecordToggle,
+  });
+  keyboardLatestRef.current = {
+    isLive,
+    isConnecting,
+    handleStart,
+    handleStop,
+    handleScreenshot,
+    handleRecordToggle,
+  };
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      )
+        return;
+
+      const { isLive, isConnecting, handleStart, handleStop, handleScreenshot, handleRecordToggle } =
+        keyboardLatestRef.current;
+
+      if (e.code === "Space") {
+        e.preventDefault();
+        if (isLive) handleStop();
+        else if (!isConnecting) handleStart();
+      }
+      if (e.code === "KeyS" && isLive) {
+        e.preventDefault();
+        handleScreenshot();
+      }
+      if (e.code === "KeyR" && isLive) {
+        e.preventDefault();
+        handleRecordToggle();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
   }, []);
 
   return (
