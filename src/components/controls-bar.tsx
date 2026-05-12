@@ -21,6 +21,12 @@ interface ControlsBarProps {
   onPopOut: () => void;
 }
 
+function formatElapsed(seconds: number) {
+  const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
+  const ss = String(seconds % 60).padStart(2, "0");
+  return `${mm}:${ss}`;
+}
+
 export function ControlsBar({
   isRunning,
   isConnecting,
@@ -55,8 +61,8 @@ export function ControlsBar({
   );
 
   return (
-    <div className="space-y-3">
-      {/* Prompt row */}
+    <div className="space-y-4">
+      {/* Prompt */}
       <div className="flex items-center gap-3">
         <input
           ref={inputRef}
@@ -64,41 +70,46 @@ export function ControlsBar({
           value={prompt}
           onChange={(e) => onPromptChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Optional text prompt (e.g. 'wearing a red hat')..."
+          placeholder="Optional text prompt (e.g. wearing a red hat)…"
           disabled={!isRunning}
-          className="flex-1 rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 disabled:opacity-50"
+          className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-base text-[var(--ink)] placeholder:text-[var(--ink-faint)] transition-colors focus:border-[var(--ink-faint)] focus:outline-none focus:ring-1 focus:ring-[var(--ink-faint)] disabled:opacity-50"
         />
         <button
           onClick={() => setEnhance(!enhance)}
           disabled={!isRunning}
-          className={`rounded-lg px-3 py-2.5 text-xs font-medium transition-all ${
+          aria-pressed={enhance}
+          className={`rounded-lg border px-4 py-3 text-sm font-medium transition-colors disabled:opacity-50 ${
             enhance
-              ? "bg-violet-600 text-white"
-              : "bg-white/5 text-white/50 border border-white/10"
-          } disabled:opacity-50`}
+              ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)]"
+              : "border-[var(--border)] bg-[var(--surface)] text-[var(--ink-dim)] hover:text-[var(--ink)]"
+          }`}
         >
           Enhance
         </button>
       </div>
 
-      {/* Button row */}
-      <div className="flex items-center gap-3">
+      {/* Buttons */}
+      <div className="flex flex-wrap items-center gap-3">
         <button
           onClick={isRunning ? onStop : onStart}
           disabled={isConnecting}
-          className={`rounded-lg px-6 py-2.5 text-sm font-semibold transition-all ${
+          className={`rounded-lg px-6 py-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
             isRunning
-              ? "bg-red-600 text-white hover:bg-red-500"
-              : "bg-violet-600 text-white hover:bg-violet-500"
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
+              ? "border border-[var(--accent)]/50 bg-[var(--accent-soft)] text-[var(--ink)] hover:bg-[var(--accent-soft)]/80"
+              : "bg-[var(--ink)] text-[var(--bg)] hover:bg-white"
+          }`}
         >
-          {isConnecting ? "Connecting..." : isRunning ? "Stop" : "Start"}
+          {isConnecting
+            ? "Connecting…"
+            : isRunning
+              ? "Stop"
+              : "Start"}
         </button>
 
         <button
           onClick={onScreenshot}
           disabled={!isRunning}
-          className="rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white/70 hover:bg-white/10 transition-all disabled:opacity-30"
+          className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--ink-dim)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--ink)] disabled:opacity-30"
         >
           Screenshot
         </button>
@@ -106,44 +117,53 @@ export function ControlsBar({
         <button
           onClick={onRecordToggle}
           disabled={!isRunning || (!isRecording && !canRecord)}
-          className={`rounded-lg border px-4 py-2.5 text-sm transition-all disabled:opacity-30 ${
+          className={`rounded-lg border px-4 py-3 text-sm transition-colors disabled:opacity-30 ${
             isRecording
-              ? "border-red-500/50 bg-red-500/20 text-red-200 hover:bg-red-500/30"
-              : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
+              ? "border-[var(--accent)]/50 bg-[var(--accent-soft)] text-[var(--ink)]"
+              : "border-[var(--border)] bg-[var(--surface)] text-[var(--ink-dim)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
           }`}
         >
           {isRecording ? (
             <span className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-              Stop Recording
+              <span
+                className="h-2 w-2 rounded-full pulse-soft"
+                style={{ background: "var(--accent)" }}
+              />
+              Stop recording
             </span>
           ) : (
-            "Record"
+            <span className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-[var(--ink-faint)]" />
+              Record
+            </span>
           )}
         </button>
 
         {hasClip && !isRecording && (
           <button
             onClick={onShowClip}
-            className="rounded-lg border border-violet-500/40 bg-violet-500/10 px-4 py-2.5 text-sm text-violet-200 hover:bg-violet-500/20 transition-all"
+            className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--ink-dim)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
           >
-            View Clip
+            View clip
           </button>
         )}
 
         <button
           onClick={onPopOut}
           disabled={!isRunning}
-          className="rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white/70 hover:bg-white/10 transition-all disabled:opacity-30"
+          className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--ink-dim)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--ink)] disabled:opacity-30"
         >
-          Pop Out
+          Pop out
         </button>
 
         {isRunning && (
-          <div className="ml-auto flex items-center gap-4 text-sm text-white/50">
-            <span>{elapsedSeconds}s</span>
-            <span className="font-mono">
-              ${cost} <span className="text-white/30">/ ${maxCost}</span>
+          <div className="ml-auto flex items-center gap-5 text-sm">
+            <span className="font-mono text-[var(--ink-dim)]">
+              {formatElapsed(elapsedSeconds)}
+            </span>
+            <span className="font-mono text-[var(--ink)]">
+              ${cost}{" "}
+              <span className="text-[var(--ink-faint)]">/ ${maxCost}</span>
             </span>
           </div>
         )}

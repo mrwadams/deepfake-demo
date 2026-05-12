@@ -29,32 +29,35 @@ export function ScreenshotModal({ imageUrl, onClose }: ScreenshotModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+      className="fade-up fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="relative max-w-3xl w-full mx-4 rounded-2xl bg-gray-900 p-4 shadow-2xl"
+        className="relative w-full max-w-3xl rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={imageUrl}
           alt="Screenshot"
-          className="w-full rounded-lg"
+          className="w-full rounded-lg bg-black"
         />
-        <div className="mt-4 flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm text-white/60 hover:bg-white/10 transition-colors"
-          >
-            Close
-          </button>
-          <button
-            onClick={handleDownload}
-            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 transition-colors"
-          >
-            Download
-          </button>
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <span className="text-xs text-[var(--ink-faint)]">PNG · still</span>
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="rounded-lg px-4 py-2 text-sm text-[var(--ink-dim)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+            >
+              Close
+            </button>
+            <button
+              onClick={handleDownload}
+              className="rounded-lg bg-[var(--ink)] px-4 py-2 text-sm font-medium text-[var(--bg)] transition-colors hover:bg-white"
+            >
+              Download
+            </button>
+          </div>
         </div>
       </div>
     </div>

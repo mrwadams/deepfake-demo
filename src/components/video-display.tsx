@@ -13,16 +13,18 @@ function VideoPanel({
   stream,
   label,
   mirror,
-  glow,
+  highlight,
   overlay,
   videoRef,
+  cornerBadge,
 }: {
   stream: MediaStream | null;
   label: string;
   mirror?: boolean;
-  glow?: boolean;
+  highlight?: boolean;
   overlay?: ReactNode;
   videoRef?: React.RefObject<HTMLVideoElement | null>;
+  cornerBadge?: ReactNode;
 }) {
   const internalRef = useRef<HTMLVideoElement>(null);
   const ref = videoRef ?? internalRef;
@@ -34,10 +36,12 @@ function VideoPanel({
   }, [stream, ref]);
 
   return (
-    <div className="flex flex-1 flex-col items-center gap-2">
+    <div className="flex flex-1 flex-col gap-2">
       <div
-        className={`relative w-full overflow-hidden rounded-xl border border-white/10 bg-black ${
-          glow ? "ring-2 ring-violet-500/50 shadow-[0_0_30px_rgba(139,92,246,0.3)]" : ""
+        className={`relative overflow-hidden rounded-xl border bg-black transition-colors ${
+          highlight
+            ? "border-[var(--accent)]/50"
+            : "border-[var(--border)]"
         }`}
       >
         {stream ? (
@@ -52,14 +56,17 @@ function VideoPanel({
           />
         ) : (
           <div className="flex aspect-video w-full items-center justify-center">
-            <div className="text-white/30 text-sm">No video</div>
+            <span className="text-sm text-[var(--ink-faint)]">No signal</span>
           </div>
         )}
-        {stream && overlay ? (
-          <div className="absolute right-2 top-2">{overlay}</div>
-        ) : null}
+        {stream && overlay && (
+          <div className="absolute right-3 top-3">{overlay}</div>
+        )}
+        {stream && cornerBadge && (
+          <div className="absolute left-3 top-3">{cornerBadge}</div>
+        )}
       </div>
-      <span className="text-xs font-medium text-white/50 uppercase tracking-wider">
+      <span className="text-sm font-medium text-[var(--ink-dim)]">
         {label}
       </span>
     </div>
@@ -78,19 +85,18 @@ function MirrorToggle({
       type="button"
       onClick={onToggle}
       aria-pressed={mirrored}
-      title={mirrored ? "Mirror: on" : "Mirror: off"}
-      className={`flex h-8 w-8 items-center justify-center rounded-md border backdrop-blur-sm transition-all ${
+      title={mirrored ? "Mirror on" : "Mirror off"}
+      className={`flex h-8 w-8 items-center justify-center rounded-md border backdrop-blur-md transition-colors ${
         mirrored
-          ? "border-violet-400/40 bg-violet-500/30 text-white"
-          : "border-white/10 bg-black/40 text-white/70 hover:bg-black/60"
+          ? "border-[var(--border-strong)] bg-white/10 text-[var(--ink)]"
+          : "border-[var(--border)] bg-black/50 text-[var(--ink-dim)] hover:text-[var(--ink)]"
       }`}
     >
       <svg
-        xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
-        strokeWidth="2"
+        strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
         className="h-4 w-4"
@@ -104,6 +110,24 @@ function MirrorToggle({
   );
 }
 
+function LivePill() {
+  return (
+    <div className="flex items-center gap-2 rounded-full border border-[var(--accent)]/40 bg-black/55 px-2.5 py-1 text-[0.65rem] font-medium uppercase tracking-wider text-[var(--ink)] backdrop-blur-md">
+      <span className="relative flex h-1.5 w-1.5">
+        <span
+          className="absolute inline-flex h-full w-full animate-ping rounded-full"
+          style={{ background: "var(--accent)" }}
+        />
+        <span
+          className="relative inline-flex h-1.5 w-1.5 rounded-full"
+          style={{ background: "var(--accent)" }}
+        />
+      </span>
+      Live
+    </div>
+  );
+}
+
 export function VideoDisplay({
   localStream,
   remoteStream,
@@ -113,7 +137,7 @@ export function VideoDisplay({
   const [mirrorLocal, setMirrorLocal] = useState(true);
 
   return (
-    <div className="flex flex-col gap-4 md:flex-row md:gap-6">
+    <div className="flex flex-col gap-5 md:flex-row md:gap-6">
       <VideoPanel
         stream={localStream}
         label="You"
@@ -128,8 +152,9 @@ export function VideoDisplay({
       <VideoPanel
         stream={remoteStream}
         label="Deepfake"
-        glow={isLive}
+        highlight={isLive}
         videoRef={remoteVideoRef}
+        cornerBadge={isLive ? <LivePill /> : null}
       />
     </div>
   );

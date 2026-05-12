@@ -23,9 +23,9 @@ function FaceThumbnail({ face }: { face: PresetFace }) {
   const [imgError, setImgError] = useState(false);
 
   return (
-    <div className="relative h-14 w-14 overflow-hidden rounded-lg bg-white/10">
+    <div className="relative h-24 w-24 overflow-hidden rounded-lg bg-[var(--surface)]">
       {imgError ? (
-        <div className="flex h-full w-full items-center justify-center text-[10px] text-white/40">
+        <div className="flex h-full w-full items-center justify-center text-[11px] text-[var(--ink-faint)]">
           {face.name}
         </div>
       ) : (
@@ -34,7 +34,7 @@ function FaceThumbnail({ face }: { face: PresetFace }) {
           alt={face.name}
           fill
           className="object-cover"
-          sizes="56px"
+          sizes="96px"
           onError={() => setImgError(true)}
         />
       )}
@@ -102,23 +102,39 @@ export function FaceGallery({
   };
 
   return (
-    <div className="space-y-2">
-      <div className="-mx-1 flex items-center gap-3 overflow-x-auto px-1 py-1">
-        {PRESET_FACES.map((face) => (
-          <button
-            key={face.id}
-            onClick={() => handlePresetClick(face)}
-            disabled={disabled}
-            className={`group flex flex-col items-center gap-1 rounded-lg p-2 transition-all ${
-              selectedId === face.id
-                ? "bg-violet-500/20 ring-2 ring-violet-500"
-                : "hover:bg-white/5"
-            } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-          >
-            <FaceThumbnail face={face} />
-            <span className="text-xs text-white/60">{face.name}</span>
-          </button>
-        ))}
+    <div className="space-y-3">
+      <div className="x-scroll -mx-1 flex items-stretch gap-3 overflow-x-auto px-1 py-1.5">
+        {PRESET_FACES.map((face) => {
+          const isActive = selectedId === face.id;
+          return (
+            <button
+              key={face.id}
+              onClick={() => handlePresetClick(face)}
+              disabled={disabled}
+              aria-pressed={isActive}
+              className={`group flex shrink-0 flex-col items-center gap-2 ${
+                disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer"
+              }`}
+            >
+              <div
+                className={`relative rounded-xl p-1 transition-all ${
+                  isActive
+                    ? "bg-[var(--surface-2)] ring-2 ring-[var(--ink)]"
+                    : "ring-1 ring-transparent hover:bg-[var(--surface)]"
+                }`}
+              >
+                <FaceThumbnail face={face} />
+              </div>
+              <span
+                className={`text-sm ${
+                  isActive ? "text-[var(--ink)]" : "text-[var(--ink-dim)]"
+                }`}
+              >
+                {face.name}
+              </span>
+            </button>
+          );
+        })}
 
         <button
           onClick={() => fileInputRef.current?.click()}
@@ -126,37 +142,63 @@ export function FaceGallery({
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           disabled={disabled}
-          aria-label={customImageUrl ? "Replace custom face" : "Upload custom face"}
-          className={`relative flex h-14 w-14 flex-col items-center justify-center overflow-hidden rounded-lg border-2 border-dashed transition-all ${
-            isDragOver
-              ? "border-violet-400 bg-violet-500/30 scale-105"
-              : selectedId === "custom"
-                ? "border-violet-500 bg-violet-500/20"
-                : "border-white/20 hover:border-white/40 hover:bg-white/5"
-          } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+          aria-label={
+            customImageUrl ? "Replace custom face" : "Upload custom face"
+          }
+          className={`group flex shrink-0 flex-col items-center gap-2 ${
+            disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer"
+          }`}
         >
-          {customImageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={customImageUrl}
-              alt="Custom face"
-              className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-            />
-          ) : (
-            <>
-              <span className="pointer-events-none text-lg text-white/40">+</span>
-              <span className="pointer-events-none text-[10px] text-white/40">
-                Upload
-              </span>
-            </>
-          )}
+          <div
+            className={`relative h-[104px] w-[104px] overflow-hidden rounded-xl border-2 border-dashed p-1 transition-all ${
+              isDragOver
+                ? "border-[var(--ink)] bg-[var(--surface-2)]"
+                : selectedId === "custom"
+                  ? "border-[var(--ink)] bg-[var(--surface-2)]"
+                  : "border-[var(--border-strong)] hover:border-[var(--ink-faint)] hover:bg-[var(--surface)]"
+            }`}
+          >
+            {customImageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={customImageUrl}
+                alt="Custom face"
+                className="pointer-events-none h-full w-full rounded-lg object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-center">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  className="h-6 w-6 text-[var(--ink-faint)] group-hover:text-[var(--ink-dim)]"
+                  aria-hidden
+                >
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                <span className="text-[11px] text-[var(--ink-faint)]">
+                  Upload
+                </span>
+              </div>
+            )}
+          </div>
+          <span
+            className={`text-sm ${
+              selectedId === "custom"
+                ? "text-[var(--ink)]"
+                : "text-[var(--ink-dim)]"
+            }`}
+          >
+            Custom
+          </span>
         </button>
 
-        {selectedId && (
+        {selectedId && !disabled && (
           <button
             onClick={onClear}
-            disabled={disabled}
-            className="rounded-lg px-3 py-2 text-xs text-white/50 hover:bg-white/5 hover:text-white/80 transition-all"
+            className="self-center rounded-md px-3 py-2 text-xs text-[var(--ink-dim)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--ink)]"
           >
             Clear
           </button>

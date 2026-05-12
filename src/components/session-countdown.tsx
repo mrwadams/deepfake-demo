@@ -16,20 +16,22 @@ export function SessionCountdown({ elapsedSeconds }: SessionCountdownProps) {
   const isWarning = remaining <= WARNING_THRESHOLD_SECONDS;
 
   return (
-    <div className="flex flex-col items-end gap-1">
+    <div className="flex flex-col items-end gap-1.5">
       <span
-        className={`text-xs tabular-nums transition-colors ${
-          isWarning ? "text-red-400" : "text-white/30"
+        className={`font-mono text-sm tabular-nums transition-colors ${
+          isWarning ? "text-[var(--accent)]" : "text-[var(--ink-dim)]"
         }`}
       >
-        auto-stop in {minutes}:{seconds.toString().padStart(2, "0")}
+        {minutes}:{seconds.toString().padStart(2, "0")}{" "}
+        <span className="text-[var(--ink-faint)]">left</span>
       </span>
-      <div className="h-0.5 w-32 overflow-hidden rounded-full bg-white/10">
+      <div className="h-[2px] w-40 overflow-hidden rounded-full bg-[var(--border)]">
         <div
-          className={`h-full transition-[width,background-color] duration-300 ease-linear ${
-            isWarning ? "bg-red-500" : "bg-white/40"
-          }`}
-          style={{ width: `${progress}%` }}
+          className="h-full transition-[width] duration-300 ease-linear"
+          style={{
+            width: `${progress}%`,
+            background: isWarning ? "var(--accent)" : "var(--ink-dim)",
+          }}
         />
       </div>
     </div>

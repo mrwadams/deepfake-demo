@@ -13,7 +13,7 @@ const HANDOFF_TIMEOUT_MS = 2000;
 export default function OutputPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [hasStream, setHasStream] = useState(false);
-  const [status, setStatus] = useState("Initializing...");
+  const [status, setStatus] = useState("Initializing…");
   const [error, setError] = useState<string | null>(null);
   const startedRef = useRef(false);
 
@@ -60,7 +60,7 @@ export default function OutputPage() {
     };
 
     (async () => {
-      setStatus("Looking for active session...");
+      setStatus("Looking for active session…");
       const subscribeToken = await acquireToken();
       if (cancelled) return;
 
@@ -71,7 +71,7 @@ export default function OutputPage() {
         return;
       }
 
-      setStatus("Subscribing to session...");
+      setStatus("Subscribing to session…");
 
       try {
         const tokenRes = await fetch("/api/token", { method: "POST" });
@@ -116,13 +116,15 @@ export default function OutputPage() {
   }, [attachStream]);
 
   return (
-    <div className="h-screen w-screen bg-black flex items-center justify-center overflow-hidden">
+    <div className="flex h-screen w-screen items-center justify-center overflow-hidden bg-black">
       {error ? (
-        <p className="text-white/50 text-sm text-center px-8">{error}</p>
+        <p className="px-8 text-center text-sm text-[var(--ink-dim)]">
+          {error}
+        </p>
       ) : !hasStream ? (
         <div className="flex flex-col items-center gap-3">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/20 border-t-violet-500" />
-          <p className="text-white/30 text-sm">{status}</p>
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--ink)]" />
+          <p className="text-xs text-[var(--ink-faint)]">{status}</p>
         </div>
       ) : null}
       <video

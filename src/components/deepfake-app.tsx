@@ -374,37 +374,53 @@ export function DeepfakeApp() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
+  const firstError = error || webcam.error || token.error || realtime.lastError;
+
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6">
+    <div className="fade-up mx-auto w-full max-w-[1400px] px-6 py-12 lg:px-12">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Deepfake Demo</h1>
-        <div className="flex items-center gap-4">
-          <StatusIndicator phase={phase} />
-          {isLive && <SessionCountdown elapsedSeconds={elapsedSeconds} />}
+      <header className="mb-10 flex items-center justify-between gap-6">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight text-[var(--ink)]">
+            Deepfake
+          </h1>
+          <p className="mt-1.5 text-base text-[var(--ink-dim)]">
+            Realtime webcam face substitution powered by Decart AI.
+          </p>
         </div>
-      </div>
+        <div className="flex items-center gap-6">
+          {isLive && <SessionCountdown elapsedSeconds={elapsedSeconds} />}
+          <StatusIndicator phase={phase} />
+        </div>
+      </header>
 
       {/* Error */}
-      {(error || webcam.error || token.error || realtime.lastError) && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          {error || webcam.error || token.error || realtime.lastError}
+      {firstError && (
+        <div
+          role="alert"
+          className="mb-6 rounded-lg border border-[var(--accent)]/40 bg-[var(--accent-soft)] px-4 py-3 text-sm text-[var(--ink)]"
+        >
+          {firstError}
         </div>
       )}
 
       {/* Videos */}
-      <VideoDisplay
-        localStream={webcam.stream}
-        remoteStream={remoteStream}
-        isLive={isLive}
-        remoteVideoRef={remoteVideoRef}
-      />
+      <section className="mb-10">
+        <VideoDisplay
+          localStream={webcam.stream}
+          remoteStream={remoteStream}
+          isLive={isLive}
+          remoteVideoRef={remoteVideoRef}
+        />
+      </section>
 
-      {/* Face Gallery */}
-      <div>
-        <div className="mb-2 flex items-baseline justify-between gap-3">
-          <h2 className="text-sm font-medium text-white/50">Reference Face</h2>
-          <p className="text-xs text-white/30">
+      {/* Reference Face */}
+      <section className="mb-10">
+        <div className="mb-4 flex items-baseline justify-between">
+          <h2 className="text-base font-medium text-[var(--ink)]">
+            Reference face
+          </h2>
+          <p className="text-sm text-[var(--ink-faint)]">
             Uploaded images are sent to Decart.
           </p>
         </div>
@@ -415,26 +431,28 @@ export function DeepfakeApp() {
           onClear={handleClearFace}
           disabled={isConnecting}
         />
-      </div>
+      </section>
 
       {/* Controls */}
-      <ControlsBar
-        isRunning={isLive}
-        isConnecting={isConnecting}
-        isRecording={isRecording}
-        canRecord={remoteStream !== null}
-        hasClip={clip !== null}
-        elapsedSeconds={elapsedSeconds}
-        prompt={prompt}
-        onPromptChange={setPrompt}
-        onPromptSubmit={handlePromptSubmit}
-        onStart={handleStart}
-        onStop={handleStop}
-        onScreenshot={handleScreenshot}
-        onRecordToggle={handleRecordToggle}
-        onShowClip={() => setClipModalOpen(true)}
-        onPopOut={handlePopOut}
-      />
+      <section>
+        <ControlsBar
+          isRunning={isLive}
+          isConnecting={isConnecting}
+          isRecording={isRecording}
+          canRecord={remoteStream !== null}
+          hasClip={clip !== null}
+          elapsedSeconds={elapsedSeconds}
+          prompt={prompt}
+          onPromptChange={setPrompt}
+          onPromptSubmit={handlePromptSubmit}
+          onStart={handleStart}
+          onStop={handleStop}
+          onScreenshot={handleScreenshot}
+          onRecordToggle={handleRecordToggle}
+          onShowClip={() => setClipModalOpen(true)}
+          onPopOut={handlePopOut}
+        />
+      </section>
 
       {/* Screenshot Modal */}
       {screenshotUrl && (

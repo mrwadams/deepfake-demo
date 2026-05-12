@@ -6,46 +6,67 @@ interface StatusIndicatorProps {
   phase: SessionPhase;
 }
 
-const STATE_CONFIG: Record<
-  SessionPhase,
-  { label: string; color: string; pulse: boolean }
+type Tone = "idle" | "wait" | "ready" | "live" | "alarm";
+
+const STATE_CONFIG: Record<SessionPhase, { label: string; tone: Tone }> = {
+  idle: { label: "Ready", tone: "idle" },
+  "starting-webcam": { label: "Starting webcam", tone: "wait" },
+  "fetching-token": { label: "Authenticating", tone: "wait" },
+  connecting: { label: "Connecting", tone: "wait" },
+  connected: { label: "Connected", tone: "ready" },
+  generating: { label: "Live", tone: "live" },
+  reconnecting: { label: "Reconnecting", tone: "wait" },
+  disconnected: { label: "Disconnected", tone: "alarm" },
+};
+
+const TONE: Record<
+  Tone,
+  { dot: string; text: string; pulse: boolean }
 > = {
-  idle: { label: "Ready", color: "bg-gray-500", pulse: false },
-  "starting-webcam": {
-    label: "Starting webcam",
-    color: "bg-yellow-500",
+  idle: {
+    dot: "bg-[var(--ink-faint)]",
+    text: "text-[var(--ink-dim)]",
+    pulse: false,
+  },
+  wait: {
+    dot: "bg-amber-400",
+    text: "text-amber-300",
     pulse: true,
   },
-  "fetching-token": {
-    label: "Authenticating",
-    color: "bg-yellow-500",
+  ready: {
+    dot: "bg-emerald-400",
+    text: "text-emerald-300",
+    pulse: false,
+  },
+  live: {
+    dot: "bg-[var(--accent)]",
+    text: "text-[var(--ink)]",
     pulse: true,
   },
-  connecting: { label: "Connecting", color: "bg-yellow-500", pulse: true },
-  connected: { label: "Connected", color: "bg-blue-500", pulse: false },
-  generating: { label: "LIVE", color: "bg-green-500", pulse: true },
-  reconnecting: { label: "Reconnecting", color: "bg-yellow-500", pulse: true },
-  disconnected: { label: "Disconnected", color: "bg-red-500", pulse: false },
+  alarm: {
+    dot: "bg-red-500",
+    text: "text-red-300",
+    pulse: false,
+  },
 };
 
 export function StatusIndicator({ phase }: StatusIndicatorProps) {
-  const config = STATE_CONFIG[phase];
+  const cfg = STATE_CONFIG[phase];
+  const tone = TONE[cfg.tone];
 
   return (
     <div className="flex items-center gap-2">
-      <span className="relative flex h-3 w-3">
-        {config.pulse && (
+      <span className="relative flex h-2 w-2">
+        {tone.pulse && (
           <span
-            className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${config.color}`}
+            className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-70 ${tone.dot}`}
           />
         )}
         <span
-          className={`relative inline-flex h-3 w-3 rounded-full ${config.color}`}
+          className={`relative inline-flex h-2 w-2 rounded-full ${tone.dot}`}
         />
       </span>
-      <span className="text-sm font-semibold text-white/80">
-        {config.label}
-      </span>
+      <span className={`text-sm font-medium ${tone.text}`}>{cfg.label}</span>
     </div>
   );
 }
