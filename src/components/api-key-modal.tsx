@@ -86,7 +86,7 @@ export function ApiKeyModal({
               handleSave();
             }
           }}
-          placeholder="sk_…"
+          placeholder="dct_…"
           className="mt-1.5 w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2.5 font-mono text-sm text-[var(--ink)] placeholder:text-[var(--ink-faint)] focus:border-[var(--ink-faint)] focus:outline-none focus:ring-1 focus:ring-[var(--ink-faint)]"
         />
 
