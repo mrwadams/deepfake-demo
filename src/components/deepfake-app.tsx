@@ -382,7 +382,7 @@ export function DeepfakeApp() {
       <header className="mb-10 flex items-center justify-between gap-6">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-[var(--ink)]">
-            Deepfake
+            Live Deepfake Demo
           </h1>
           <p className="mt-1.5 text-base text-[var(--ink-dim)]">
             Realtime webcam face substitution powered by Decart AI.

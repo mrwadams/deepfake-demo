@@ -14,7 +14,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Deepfake — Realtime Face Substitution",
+  title: "Live Deepfake Demo",
   description: "Realtime webcam face substitution powered by Decart AI.",
 };
 
