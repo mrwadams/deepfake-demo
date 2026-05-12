@@ -10,8 +10,14 @@ import { ControlsBar } from "./controls-bar";
 import { StatusIndicator } from "./status-indicator";
 import { ScreenshotModal } from "./screenshot-modal";
 import { ClipModal } from "./clip-modal";
+import { ApiKeyModal } from "./api-key-modal";
 import { SessionCountdown } from "./session-countdown";
 import { MAX_SESSION_SECONDS, SUBSCRIBE_TOKEN_CHANNEL } from "@/lib/constants";
+import {
+  getStoredApiKey,
+  setStoredApiKey,
+  clearStoredApiKey,
+} from "@/lib/api-key";
 import {
   sessionPhaseReducer,
   isConnectingPhase,
@@ -58,6 +64,15 @@ export function DeepfakeApp() {
   const [clipModalOpen, setClipModalOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [apiKeyModalOpen, setApiKeyModalOpen] = useState(false);
+  const [apiKeyModalError, setApiKeyModalError] = useState<string | null>(null);
+  // Tracks whether a key is currently in localStorage, so the modal can show
+  // a "Clear" button. Hydrated in an effect to avoid SSR/CSR mismatch.
+  const [hasStoredKey, setHasStoredKey] = useState(false);
+
+  useEffect(() => {
+    setHasStoredKey(getStoredApiKey() !== null);
+  }, []);
 
   // Revoke the previous object URL whenever it changes (or on unmount).
   useEffect(() => {
@@ -140,16 +155,19 @@ export function DeepfakeApp() {
       }
       dispatch({ type: "WEBCAM_READY" });
 
-      const apiKey = await token.activate();
-      if (!apiKey) {
-        setError("Failed to authenticate");
+      const result = await token.activate(getStoredApiKey());
+      if (!result.ok) {
+        if (result.code === "NO_API_KEY" || result.code === "INVALID_KEY") {
+          setApiKeyModalError(result.message);
+          setApiKeyModalOpen(true);
+        }
         webcam.stop();
         dispatch({ type: "FAIL" });
         return;
       }
       dispatch({ type: "TOKEN_READY" });
 
-      const rtClient = await realtime.connect(apiKey, stream);
+      const rtClient = await realtime.connect(result.apiKey, stream);
 
       // Apply any face/prompt the user staged before clicking Start.
       const staged = currentTransformRef.current;
@@ -309,6 +327,23 @@ export function DeepfakeApp() {
     setScreenshotUrl(canvas.toDataURL("image/png"));
   }, []);
 
+  const handleOpenApiKeyModal = useCallback(() => {
+    setApiKeyModalError(null);
+    setApiKeyModalOpen(true);
+  }, []);
+
+  const handleSaveApiKey = useCallback((key: string) => {
+    setStoredApiKey(key);
+    setHasStoredKey(true);
+    setApiKeyModalError(null);
+    setApiKeyModalOpen(false);
+  }, []);
+
+  const handleClearApiKey = useCallback(() => {
+    clearStoredApiKey();
+    setHasStoredKey(false);
+  }, []);
+
   const handlePopOut = useCallback(() => {
     window.open(
       "/output",
@@ -391,6 +426,13 @@ export function DeepfakeApp() {
         <div className="flex items-center gap-6">
           {isLive && <SessionCountdown elapsedSeconds={elapsedSeconds} />}
           <StatusIndicator phase={phase} />
+          <button
+            onClick={handleOpenApiKeyModal}
+            disabled={isLive || isConnecting}
+            className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--ink-dim)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {hasStoredKey ? "API key ✓" : "API key"}
+          </button>
         </div>
       </header>
 
@@ -469,6 +511,20 @@ export function DeepfakeApp() {
           videoUrl={clip.url}
           extension={clip.ext}
           onClose={() => setClipModalOpen(false)}
+        />
+      )}
+
+      {apiKeyModalOpen && (
+        <ApiKeyModal
+          initialValue=""
+          hasStoredKey={hasStoredKey}
+          errorMessage={apiKeyModalError}
+          onSave={handleSaveApiKey}
+          onClear={handleClearApiKey}
+          onClose={() => {
+            setApiKeyModalOpen(false);
+            setApiKeyModalError(null);
+          }}
         />
       )}
     </div>

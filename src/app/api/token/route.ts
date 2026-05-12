@@ -1,21 +1,25 @@
 import { createDecartClient } from "@decartai/sdk";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { TOKEN_TTL_SECONDS, DECART_MODEL } from "@/lib/constants";
 
-const serverClient = createDecartClient({
-  apiKey: process.env.DECART_API_KEY!,
-});
+export async function POST(req: NextRequest) {
+  let userApiKey: string | undefined;
+  const body = await req.json().catch(() => null);
+  if (body && typeof body.apiKey === "string" && body.apiKey.trim()) {
+    userApiKey = body.apiKey.trim();
+  }
 
-export async function POST() {
-  if (!process.env.DECART_API_KEY) {
+  const apiKey = userApiKey || process.env.DECART_API_KEY;
+  if (!apiKey) {
     return NextResponse.json(
-      { error: "DECART_API_KEY not configured" },
-      { status: 500 }
+      { error: "No Decart API key available. Provide one in Settings.", code: "NO_API_KEY" },
+      { status: 400 }
     );
   }
 
   try {
-    const token = await serverClient.tokens.create({
+    const client = createDecartClient({ apiKey });
+    const token = await client.tokens.create({
       expiresIn: TOKEN_TTL_SECONDS,
       allowedModels: [DECART_MODEL],
     });
@@ -25,8 +29,16 @@ export async function POST() {
       expiresAt: token.expiresAt,
     });
   } catch {
+    // If the user supplied the key, the most likely cause is that it's wrong
+    // or out of quota. Surface that distinctly so the UI can reopen the modal.
+    if (userApiKey) {
+      return NextResponse.json(
+        { error: "Decart rejected this API key.", code: "INVALID_KEY" },
+        { status: 401 }
+      );
+    }
     return NextResponse.json(
-      { error: "Failed to generate token" },
+      { error: "Failed to generate token", code: "TOKEN_FAILED" },
       { status: 500 }
     );
   }
