@@ -2,21 +2,21 @@ import { PresetFace } from "@/types";
 
 export const PRESET_FACES: PresetFace[] = [
   {
-    id: "dave",
-    name: "Dave",
-    path: "/faces/dave.jpg",
+    id: "rebecca",
+    name: "Rebecca",
+    path: "/faces/rebecca.jpg",
     prompt: "Substitute the character in the video with this person.",
   },
   {
-    id: "steve",
-    name: "Steve",
-    path: "/faces/steve.png",
+    id: "hiroshi",
+    name: "Hiroshi",
+    path: "/faces/hiroshi.jpg",
     prompt: "Substitute the character in the video with this person.",
   },
   {
-    id: "taylor",
-    name: "Taylor",
-    path: "/faces/taylor.jpg",
+    id: "amara",
+    name: "Amara",
+    path: "/faces/amara.jpg",
     prompt: "Substitute the character in the video with this person.",
   },
 ];
