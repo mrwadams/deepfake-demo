@@ -1,5 +1,7 @@
 # Deepfake Demo
 
+Built for security-awareness sessions to show executives, in the room, how convincing real-time face-swap has become — so the threat lands as something they've watched happen to themselves, not an abstract risk.
+
 A real-time webcam face-swap demo built on the [Decart AI](https://decart.ai) realtime SDK (`lucy_2_rt`). The browser captures the webcam, streams it to Decart over WebRTC, and renders the transformed video back. A reference face image and/or text prompt steers the transform.
 
 ## How it works
